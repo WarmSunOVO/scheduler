@@ -1,32 +1,37 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-
-// 导入你的组件 (稍后我们会创建这些示例组件)
-// import HomeView from '../views/HomeView.vue'
-// import LoginView from '../views/LoginView.vue'
-
+// import HomeView from '../views/HomeView.vue' // 如果有，可以保留或删除
+import ClassroomManagement from '../views/ClassroomManagement.vue' // <--- 导入教室管理视图
+import TeacherManagement from '../views/TeacherManagement.vue' // <--- 导入教师管理视图
 const routes = [
-    // {
-    //   path: '/',
-    //   name: 'home',
-    //   component: HomeView
-    // },
-    // {
-    //   path: '/login',
-    //   name: 'login',
-    //   component: LoginView
-    // }
-    // 暂时留空，或者添加一个最简单的根路由指向 App.vue 里的内容
     {
         path: '/',
-        name: 'default',
-        component: () => import('../App.vue') // 或者一个专门的布局/首页组件
+        redirect: '/management/classrooms' // 保持之前的重定向或修改为新的默认页
+    },
+    {
+        path: '/management/classrooms',
+        name: 'classroomManagement',
+        component: ClassroomManagement,
+        meta: { title: '教室管理' }
+    },
+    { // <--- 为教师管理添加路由
+        path: '/management/teachers',
+        name: 'teacherManagement',
+        component: TeacherManagement,
+        meta: { title: '教师管理' }
     }
+    // ... 其他路由
 ]
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL), // 使用 history 模式
+    history: createWebHistory(import.meta.env.BASE_URL),
     routes
 })
+
+// (可选) 全局前置守卫，用于更新页面标题
+router.beforeEach((to, from, next) => {
+    document.title = to.meta.title ? `${to.meta.title} - 智能AI高校排课系统` : '智能AI高校排课系统';
+    next();
+});
 
 export default router
