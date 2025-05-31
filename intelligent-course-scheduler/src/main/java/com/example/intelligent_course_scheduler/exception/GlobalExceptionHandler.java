@@ -77,7 +77,7 @@ public class GlobalExceptionHandler {
 
         // 使用我们声明的 logger 实例
         logger.error("GlobalExceptionHandler caught a general exception: ", ex); // <--- 这里之前报错
-
+        logger.error("GlobalExceptionHandler caught a general exception. Exception Type: {}, Message: {}", ex.getClass().getName(), ex.getMessage(), ex);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());

@@ -2,15 +2,28 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 // 视图组件导入
 import LoginView from '../views/LoginView.vue';
-import MainLayout from '../layouts/MainLayout.vue'; // 确保路径正确，通常是 @/layouts/MainLayout.vue
+import MainLayout from '../layouts/MainLayout.vue';
 import ClassroomManagement from '../views/ClassroomManagement.vue';
 import TeacherManagement from '../views/TeacherManagement.vue';
-// (可选) 如果你有仪表盘或404页面，也在这里导入或使用懒加载
-// import DashboardView from '../views/DashboardView.vue';
-// const NotFoundView = () => import('../views/NotFoundView.vue');
+import UserManagement from '../views/UserManagement.vue';
+import CourseManagement from '../views/CourseManagement.vue'; // <--- 导入课程管理视图
+import SemesterManagement from '../views/SemesterManagement.vue'; // <--- 导入学期管理视图
+import { Calendar as CalendarIcon } from '@element-plus/icons-vue'; // <--- 假设用这个图标
+import TeachingTaskManagement from '../views/TeachingTaskManagement.vue'; // <--- 导入
+import { Tickets as TicketsIcon } from '@element-plus/icons-vue'; // <--- 假设用这个图标
+
+// 引入 Element Plus Icons
+import {
+    Setting,
+    School,
+    User as UserIcon,
+    UserFilled,
+    HomeFilled,
+    Collection as CollectionIcon // <--- 用于课程管理的图标
+} from '@element-plus/icons-vue';
 
 // 引入 Pinia store
-import { useAuthStore } from '@/stores/authStore'; // 确保路径正确
+import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
     {
@@ -19,88 +32,136 @@ const routes = [
         component: LoginView,
         meta: {
             title: '系统登录',
-            requiresAuth: false // 登录页不需要认证
+            requiresAuth: false
         }
     },
     {
-        path: '/', // 应用的根路径，将使用 MainLayout
+        path: '/',
         component: MainLayout,
-        redirect: '/management/classrooms', // 默认重定向到 MainLayout 下的教室管理页面
+        redirect: '/management/classrooms', // 默认重定向
         meta: {
-            requiresAuth: true // 访问此布局及其子路由都需要认证
+            requiresAuth: true
         },
         children: [
-            // 示例：仪表盘/首页 (如果需要)
-            // {
-            //   path: 'dashboard', // 最终路径: /dashboard
-            //   name: 'dashboard',
-            //   component: DashboardView,
-            //   meta: { title: '仪表盘' } // 父路由已要求认证
-            // },
             {
-                path: 'management/classrooms', // 最终路径: /management/classrooms
+                path: 'management/classrooms',
                 name: 'classroomManagement',
                 component: ClassroomManagement,
-                meta: { title: '教室管理' }
+                meta: {
+                    title: '教室管理',
+                    icon: School,
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER']
+                }
             },
             {
-                path: 'management/teachers', // 最终路径: /management/teachers
+                path: 'management/teachers',
                 name: 'teacherManagement',
                 component: TeacherManagement,
-                meta: { title: '教师管理' }
+                meta: {
+                    title: '教师管理',
+                    icon: UserIcon,
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER']
+                }
             },
-            // 在这里添加其他需要在 MainLayout 中显示的受保护页面路由
-            // 例如：课程管理，学生管理等
+            {
+                path: 'management/users',
+                name: 'userManagement',
+                component: UserManagement,
+                meta: {
+                    title: '用户管理',
+                    icon: UserFilled,
+                    roles: ['ROLE_ADMIN']
+                }
+            },
+            { // <--- 新增课程管理路由 --->
+                path: 'management/courses',
+                name: 'courseManagement',
+                component: CourseManagement,
+                meta: {
+                    title: '课程管理',
+                    icon: CollectionIcon, // 指定图标
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER'] // 假设管理员和教师可访问
+                }
+            },
+            { // <--- 新增学期管理路由 --->
+                path: 'management/semesters',
+                name: 'semesterManagement',
+                component: SemesterManagement,
+                meta: {
+                    title: '学期管理',
+                    icon: CalendarIcon, // 指定图标
+                    roles: ['ROLE_ADMIN'] // 通常只有管理员能管理学期
+                }
+            },
+            {
+                path: 'teaching-tasks', // <--- 路径可以不放在 'management'下，如果它更核心
+                name: 'teachingTaskManagement',
+                component: TeachingTaskManagement,
+                meta: {
+                    title: '教学任务管理',
+                    icon: TicketsIcon, // 指定图标
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER'] // 假设管理员和教师可操作
+                }
+            }
+            // 在这里可以继续添加其他子路由，例如学期管理等
+            // {
+            //   path: 'management/semesters',
+            //   name: 'semesterManagement',
+            //   component: () => import('@/views/SemesterManagement.vue'),
+            //   meta: { title: '学期管理', icon: SomeIcon, roles: ['ROLE_ADMIN'] }
+            // },
         ]
     },
-    // (可选) 404 页面 - 应该放在所有有效路由之后
+    // 404 页面 (可选)
     // {
-    //   path: '/:pathMatch(.*)*', // 匹配所有未匹配到的路径
+    //   path: '/:pathMatch(.*)*',
     //   name: 'NotFound',
-    //   component: NotFoundView,
-    //   meta: { title: '页面未找到', requiresAuth: false }
+    //   component: () => import('../views/NotFoundView.vue'),
+    //   meta: { title: '页面未找到 - 404', requiresAuth: false }
     // }
 ];
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL), // Vite 项目通常用这个
+    history: createWebHistory(import.meta.env.BASE_URL),
     routes,
     scrollBehavior(to, from, savedPosition) {
-        // 路由切换时滚动到页面顶部
         if (savedPosition) {
             return savedPosition;
         } else {
-            return { top: 0 };
+            return { top: 0, behavior: 'smooth' };
         }
     }
 });
 
-// 全局前置路由守卫
+// 全局前置路由守卫 (保持不变)
 router.beforeEach((to, from, next) => {
-    // 动态设置页面标题
     document.title = to.meta.title ? `${to.meta.title} - 智能AI高校排课系统` : '智能AI高校排课系统';
-
-    const authStore = useAuthStore(); // 在守卫函数内部获取 store 实例
-
-    // to.matched.some(record => record.meta.requiresAuth) 检查路由链中是否有任何一个记录标记了需要认证
+    const authStore = useAuthStore();
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+    const requiredRoles = to.meta.roles; // 获取当前目标路由定义的角色
 
-    if (requiresAuth && !authStore.isAuthenticated) {
-        // 如果目标路由需要认证，但用户未通过认证
-        console.log(`路由守卫: 路径 "${to.fullPath}" 需要认证，但用户未登录。重定向到登录页。`);
-        next({
-            name: 'login', // 跳转到登录页的路由名称
-            query: { redirect: to.fullPath } // 保存用户原本想访问的路径，以便登录后重定向回去
-        });
+    if (requiresAuth) {
+        if (!authStore.isAuthenticated) {
+            next({
+                name: 'login',
+                query: { redirect: to.fullPath }
+            });
+        } else {
+            if (requiredRoles && Array.isArray(requiredRoles) && requiredRoles.length > 0) {
+                if (authStore.hasAnyRole(requiredRoles)) {
+                    next();
+                } else {
+                    console.warn(`路由守卫: 用户 "${authStore.user?.username}" 没有权限访问 "${to.fullPath}". 需要角色: ${requiredRoles.join(',')}. 用户角色: ${authStore.userRoles.join(',')}`);
+                    next({ path: from.fullPath && from.name !== 'login' ? from.fullPath : '/' });
+                }
+            } else {
+                next();
+            }
+        }
     } else if (to.name === 'login' && authStore.isAuthenticated) {
-        // 如果用户已认证，但尝试访问登录页
-        console.log(`路由守卫: 用户已登录，尝试访问登录页。重定向到来源页或首页。`);
-        // 尝试重定向到他们刚离开的页面（如果不是登录页），否则到根路径
-        const redirectTo = from.name !== 'login' && from.fullPath !== '/' ? from.fullPath : '/';
-        next({ path: redirectTo });
+        next({ path: from.fullPath && from.name !== 'login' && from.fullPath !== '/login' ? from.fullPath : '/' });
     } else {
-        // 其他情况 (访问无需认证的页面，或者已认证用户访问需要认证的页面)
-        next(); // 允许路由继续
+        next();
     }
 });
 
