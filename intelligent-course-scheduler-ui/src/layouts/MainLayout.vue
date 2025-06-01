@@ -15,17 +15,19 @@
           text-color="#bfcbd9"
           active-text-color="#409EFF"
       >
+        <!-- 直接遍历 visibleMenuItems -->
         <template v-for="menuItem in visibleMenuItems" :key="menuItem.path">
           <el-sub-menu
-              v-if="menuItem.children && menuItem.children.length > 0 && !menuItem.meta?.alwaysShowAsRoot && menuItem.children.some(c => shouldShowMenuItem(c))"
+              v-if="menuItem.children && menuItem.children.length > 0"
               :index="menuItem.path"
           >
             <template #title>
               <el-icon v-if="menuItem.meta?.icon"><component :is="menuItem.meta.icon" /></el-icon>
+              <!-- 在折叠时，如果只有图标，标题可以不显示或特殊处理 -->
               <span v-if="!isCollapse || !menuItem.meta?.icon">{{ menuItem.meta?.title }}</span>
             </template>
             <el-menu-item
-                v-for="childItem in menuItem.children.filter(c => shouldShowMenuItem(c))"
+                v-for="childItem in menuItem.children"
                 :key="childItem.name"
                 :index="childItem.path"
                 :route="{ name: childItem.name }"
@@ -35,7 +37,7 @@
             </el-menu-item>
           </el-sub-menu>
           <el-menu-item
-              v-else-if="!menuItem.meta?.hideInMenu"
+              v-else
               :index="menuItem.path"
               :route="{ path: menuItem.path }"
           >
@@ -99,14 +101,19 @@
 import { ref, computed, markRaw } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+// 导入所有在 router/index.js 中为 meta.icon 指定的图标组件
 import {
   Setting, School, User as UserIconInMenu, UserFilled, HomeFilled, ArrowDown, Expand, Fold,
-  Avatar as AvatarIcon, Lock as LockIcon, SwitchButton as SwitchButtonIcon, Setting as SettingHeaderIcon,
-} from '@element-plus/icons-vue';
+  Avatar as AvatarIcon, Lock as LockIconInHeader, SwitchButton as SwitchButtonIcon, Setting as SettingHeaderIcon,
+  Collection as CollectionIcon, Calendar as CalendarIcon, Tickets as TicketsIcon, Lock as LockIcon, House as HouseIcon,
+  View as ViewIcon // 确保 ViewIcon 也导入了，虽然不在菜单直接用，但 router/index.js 可能有
+} from '@element-plus/icons-vue'; // LockIcon 可能重复，确保只导入一次或用不同别名
 import { ElMessage } from 'element-plus';
+
 defineOptions({
   name: 'MainLayout'
 });
+
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
@@ -115,104 +122,86 @@ const isCollapse = ref(false);
 const activeMenu = computed(() => route.meta.activeMenu || route.path);
 const currentPageTitle = computed(() => route.meta.title || '');
 
-const iconComponents = { Setting, School, UserIconInMenu, UserFilled, HomeFilled, AvatarIcon, LockIcon, SwitchButtonIcon, SettingHeaderIcon };
-
+// 辅助函数：检查菜单项是否应该显示
 const shouldShowMenuItem = (menuItem) => {
-  if (!menuItem.meta || menuItem.meta.hidden) {
+  if (!menuItem.meta || menuItem.meta.hiddenInMenu || menuItem.meta.hidden) { // 增加 hiddenInMenu 判断
     return false;
   }
   if (menuItem.meta.roles && Array.isArray(menuItem.meta.roles) && menuItem.meta.roles.length > 0) {
     return authStore.hasAnyRole(menuItem.meta.roles);
   }
-  return true;
+  return true; // 如果没有定义 roles，则默认显示 (如果需要认证，路由守卫会处理)
 };
+
+// 递归处理子路由并构建菜单项
+const processRoutesForMenu = (routesToProcess, basePath = '') => {
+  const menu = [];
+  for (const r of routesToProcess) {
+    if (!shouldShowMenuItem(r)) {
+      continue;
+    }
+
+    const currentPath = r.path.startsWith('/') ? r.path : (basePath ? `${basePath}/${r.path}` : `/${r.path}`);
+    // 确保路径是唯一的，并且对于 router-link 的 index 是有效的
+    // router/index.js 中子路由的 path 通常不带前导 '/'，除非是绝对路径
+
+    const menuItem = {
+      path: currentPath,
+      name: r.name,
+      meta: { // 直接传递 meta 对象，图标组件引用在 meta.icon 中
+        ...r.meta,
+        // 如果 meta.icon 是一个已导入的组件，就直接使用它。
+        // Vue 模板中的 <component :is="xxx" /> 会正确处理组件对象。
+        // 不需要在这里 markRaw，因为 router/index.js 中导入的组件已经是 markRaw 的效果了
+        // 或者说，组件对象本身就不应该被 Vue 深度代理。
+        icon: r.meta?.icon // 直接传递路由中定义的图标组件
+      },
+      children: []
+    };
+
+    if (r.children && r.children.length > 0 && !r.meta?.alwaysShowAsRoot) {
+      menuItem.children = processRoutesForMenu(r.children, currentPath);
+      // 如果子菜单过滤后为空，则不应显示为父菜单 (除非父菜单自身也作为链接)
+      if (menuItem.children.length === 0 && !r.component) { // 如果没有子项且父级不是一个可点击的路由页面
+        continue;
+      }
+    }
+    menu.push(menuItem);
+  }
+  return menu;
+};
+
 
 const visibleMenuItems = computed(() => {
   console.log('Recalculating visibleMenuItems...');
   const mainLayoutRoute = router.options.routes.find(r => r.path === '/' && r.component?.name === 'MainLayout');
-  console.log('MainLayout Route found:', mainLayoutRoute ? JSON.parse(JSON.stringify(mainLayoutRoute)) : undefined);
 
   if (!mainLayoutRoute || !mainLayoutRoute.children) {
-    console.log('No MainLayout route or no children found in router.options.routes for path "/"');
+    console.warn('MainLayout route or its children not found in router configuration.');
     return [];
   }
+  // console.log('MainLayout children from router:', JSON.parse(JSON.stringify(mainLayoutRoute.children)));
 
-  const menuStructure = []; // 最终的菜单结构
+  // 直接使用原始的 children 数组进行处理，不再手动分组 "基础数据管理"
+  // 你的 router/index.js 中的结构已经是分组的了 (通过路径前缀 'management/' 和 'constraints/')
+  // 如果需要严格按照 "基础数据管理", "核心业务", "约束管理" 这样的分组，
+  // 那么 router/index.js 中就应该定义这样的父级路由，或者在这里进行更复杂的重组。
+  // 当前简化为直接处理 MainLayout 的 children。
 
-  // 1. 处理 "基础数据管理" 子菜单
-  const managementChildren = mainLayoutRoute.children
-      .filter(childRoute => {
-        const isManagementRoute = childRoute.path.startsWith('management/'); // 注意，router.js中定义的是 'management/xxx'
-        const hasMetaAndTitle = childRoute.meta && childRoute.meta.title;
-        const shouldShow = shouldShowMenuItem(childRoute);
-        // console.log(`Child: ${childRoute.name}, Path: ${childRoute.path}, IsMgmt: ${isManagementRoute}, HasMetaTitle: ${hasMetaAndTitle}, ShouldShow: ${shouldShow}, Meta:`, childRoute.meta ? JSON.parse(JSON.stringify(childRoute.meta)) : undefined, `UserRoles: ${authStore.userRoles.join(',')}`);
-        return isManagementRoute && hasMetaAndTitle && shouldShow;
-      })
-      .map(routeItem => {
-        let iconComponent = null;
-        if (routeItem.meta?.icon) {
-          iconComponent = typeof routeItem.meta.icon === 'string' && iconComponents[routeItem.meta.icon]
-              ? markRaw(iconComponents[routeItem.meta.icon])
-              : markRaw(routeItem.meta.icon);
-        }
-        return {
-          ...routeItem,
-          // path 已经是 /management/xxx，不需要额外处理
-          name: routeItem.name,
-          meta: { ...routeItem.meta, icon: iconComponent }
-        };
-      });
-
-  if (managementChildren.length > 0) {
-    menuStructure.push({
-      path: '/management', // 虚拟父路径，用于 el-sub-menu 的 index
-      meta: { title: '基础数据管理', icon: markRaw(Setting) }, // 父菜单的图标和标题
-      children: managementChildren,
-    });
-  }
-
-  // 2. 处理其他一级菜单项 (例如教学任务管理)
-  mainLayoutRoute.children.forEach(childRoute => {
-    // 确保它不是 management/ 开头的，并且应该显示，并且它没有子菜单（或者它的子菜单我们不在这里处理为嵌套）
-    const isNotManagementRoute = !childRoute.path.startsWith('management/');
-    const hasMetaAndTitle = childRoute.meta && childRoute.meta.title;
-    const shouldShow = shouldShowMenuItem(childRoute);
-
-    // console.log(`Checking other route: ${childRoute.name}, Path: ${childRoute.path}, IsNotMgmt: ${isNotManagementRoute}, HasMetaTitle: ${hasMetaAndTitle}, ShouldShow: ${shouldShow}`);
-
-    if (isNotManagementRoute && hasMetaAndTitle && shouldShow) {
-      // 检查这个一级菜单项是否已经作为某个子菜单的父级被处理了 (虽然目前我们的结构不会)
-      // 简单起见，直接添加
-      let iconComponent = null;
-      if (childRoute.meta?.icon) {
-        iconComponent = typeof childRoute.meta.icon === 'string' && iconComponents[childRoute.meta.icon]
-            ? markRaw(iconComponents[childRoute.meta.icon])
-            : markRaw(childRoute.meta.icon);
-      }
-      menuStructure.push({
-        ...childRoute,
-        // 确保 path 是可以直接用于导航的 (从你的router.js看，子路由的path已经是完整的了)
-        path: childRoute.path.startsWith('/') ? childRoute.path : '/' + childRoute.path,
-        meta: { ...childRoute.meta, icon: iconComponent },
-        children: (childRoute.children && childRoute.children.length > 0) ?
-            childRoute.children.filter(c => shouldShowMenuItem(c)).map(c_ => ({...c_, meta: {...c_.meta, icon: c_.meta.icon ? markRaw(c_.meta.icon) : null }}))
-            : undefined // 如果它自身有子菜单且子菜单可见，也一并处理
-      });
-    }
-  });
-
-  console.log('Final menuStructure:', JSON.parse(JSON.stringify(menuStructure)));
-  return menuStructure;
+  const processedMenu = processRoutesForMenu(mainLayoutRoute.children);
+  // console.log('Final processedMenu for template:', JSON.parse(JSON.stringify(processedMenu)));
+  return processedMenu;
 });
+
 
 const toggleSidebar = () => { isCollapse.value = !isCollapse.value; };
 const goToHome = () => { router.push('/'); };
 const handleUserCommand = (command) => {
   switch (command) {
     case 'logout': authStore.logout(); break;
-    case 'profile': ElMessage.info('个人中心功能暂未开放'); break;
-    case 'changePassword': ElMessage.info('修改密码功能暂未开放'); break;
-    case 'settings': ElMessage.info('系统设置功能暂未开放'); break;
+    case 'profile': ElMessage.info('个人中心功能暂未开放'); router.push('/user/profile'); break; // 示例跳转
+    case 'changePassword': ElMessage.info('修改密码功能暂未开放'); router.push('/user/change-password'); break; // 示例跳转
+    case 'settings': ElMessage.info('系统设置功能暂未开放'); router.push('/system/settings'); break; // 示例跳转
     case 'dashboard': router.push('/'); break;
     default: break;
   }
@@ -220,6 +209,7 @@ const handleUserCommand = (command) => {
 </script>
 
 <style scoped>
+/* 您原有的样式保持不变 */
 .main-layout-container { height: 100vh; overflow: hidden; }
 .sidebar { background-color: #2b333e; color: #bfcbd9; transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15); z-index: 1001; }
 .layout-logo-container { height: 50px; display: flex; align-items: center; justify-content: center; padding: 0 10px; cursor: pointer; overflow: hidden; }

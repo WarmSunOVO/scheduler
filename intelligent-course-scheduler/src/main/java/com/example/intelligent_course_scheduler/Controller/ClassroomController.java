@@ -40,7 +40,7 @@ public class ClassroomController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdClassroom);
     }
 
-    @GetMapping("/all")
+    @GetMapping("/api/classrooms")
     public ResponseEntity<List<Classroom>> getAllClassroomsList() { // Renamed to avoid clash if you had another /all
         List<Classroom> classrooms = classroomService.getAllClassrooms();
         return ResponseEntity.ok(classrooms);

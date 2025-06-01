@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { ElMessage } from 'element-plus';
 
 // 视图组件导入
 import LoginView from '../views/LoginView.vue';
@@ -6,20 +7,29 @@ import MainLayout from '../layouts/MainLayout.vue';
 import ClassroomManagement from '../views/ClassroomManagement.vue';
 import TeacherManagement from '../views/TeacherManagement.vue';
 import UserManagement from '../views/UserManagement.vue';
-import CourseManagement from '../views/CourseManagement.vue'; // <--- 导入课程管理视图
-import SemesterManagement from '../views/SemesterManagement.vue'; // <--- 导入学期管理视图
-import { Calendar as CalendarIcon } from '@element-plus/icons-vue'; // <--- 假设用这个图标
-import TeachingTaskManagement from '../views/TeachingTaskManagement.vue'; // <--- 导入
-import { Tickets as TicketsIcon } from '@element-plus/icons-vue'; // <--- 假设用这个图标
+import CourseManagement from '../views/CourseManagement.vue';
+import SemesterManagement from '../views/SemesterManagement.vue';
+import TeachingTaskManagement from '../views/TeachingTaskManagement.vue';
+import TeacherUnavailabilityManagement from '../views/TeacherUnavailabilityManagement.vue';
+import ClassGroupUnavailabilityManagement from '../views/ClassGroupUnavailabilityManagement.vue';
+import RoomUnavailabilityManagement from '../views/RoomUnavailabilityManagement.vue';
+// 新增导入：通用约束规则管理视图
+import ConstraintRuleManagement from '../views/ConstraintRuleManagement.vue';
+
 
 // 引入 Element Plus Icons
 import {
-    Setting,
+    Setting,                // 用于通用约束规则管理
     School,
     User as UserIcon,
     UserFilled,
     HomeFilled,
-    Collection as CollectionIcon // <--- 用于课程管理的图标
+    Collection as CollectionIcon,
+    Calendar as CalendarIcon,
+    Tickets as TicketsIcon,
+    Lock as LockIcon,
+    House as HouseIcon,
+    View as ViewIcon        // ConstraintRuleManagement 中用到了 ViewIcon, 确保这里有 (虽然路由meta不用它)
 } from '@element-plus/icons-vue';
 
 // 引入 Pinia store
@@ -38,11 +48,22 @@ const routes = [
     {
         path: '/',
         component: MainLayout,
-        redirect: '/management/classrooms', // 默认重定向
+        redirect: '/management/classrooms',
         meta: {
             requiresAuth: true
         },
         children: [
+            // --- 基础数据管理 ---
+            {
+                path: 'management/semesters',
+                name: 'semesterManagement',
+                component: SemesterManagement,
+                meta: {
+                    title: '学期管理',
+                    icon: CalendarIcon,
+                    roles: ['ROLE_ADMIN']
+                }
+            },
             {
                 path: 'management/classrooms',
                 name: 'classroomManagement',
@@ -64,6 +85,16 @@ const routes = [
                 }
             },
             {
+                path: 'management/courses',
+                name: 'courseManagement',
+                component: CourseManagement,
+                meta: {
+                    title: '课程管理',
+                    icon: CollectionIcon,
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER']
+                }
+            },
+            {
                 path: 'management/users',
                 name: 'userManagement',
                 component: UserManagement,
@@ -73,52 +104,60 @@ const routes = [
                     roles: ['ROLE_ADMIN']
                 }
             },
-            { // <--- 新增课程管理路由 --->
-                path: 'management/courses',
-                name: 'courseManagement',
-                component: CourseManagement,
-                meta: {
-                    title: '课程管理',
-                    icon: CollectionIcon, // 指定图标
-                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER'] // 假设管理员和教师可访问
-                }
-            },
-            { // <--- 新增学期管理路由 --->
-                path: 'management/semesters',
-                name: 'semesterManagement',
-                component: SemesterManagement,
-                meta: {
-                    title: '学期管理',
-                    icon: CalendarIcon, // 指定图标
-                    roles: ['ROLE_ADMIN'] // 通常只有管理员能管理学期
-                }
-            },
+            // --- 核心业务 ---
             {
-                path: 'teaching-tasks', // <--- 路径可以不放在 'management'下，如果它更核心
+                path: 'teaching-tasks',
                 name: 'teachingTaskManagement',
                 component: TeachingTaskManagement,
                 meta: {
                     title: '教学任务管理',
-                    icon: TicketsIcon, // 指定图标
-                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER'] // 假设管理员和教师可操作
+                    icon: TicketsIcon,
+                    roles: ['ROLE_ADMIN', 'ROLE_TEACHER']
+                }
+            },
+            // --- 约束管理 ---
+            {
+                path: 'constraints/teacher-unavailability',
+                name: 'teacherUnavailabilityManagement',
+                component: TeacherUnavailabilityManagement,
+                meta: {
+                    title: '教师不可用时间',
+                    icon: LockIcon,
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
+                }
+            },
+            {
+                path: 'constraints/class-group-unavailability',
+                name: 'classGroupUnavailabilityManagement',
+                component: ClassGroupUnavailabilityManagement,
+                meta: {
+                    title: '班级不可用时间',
+                    icon: UserFilled, // 或者您选择的其他图标
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
+                }
+            },
+            {
+                path: 'constraints/room-unavailability',
+                name: 'roomUnavailabilityManagement',
+                component: RoomUnavailabilityManagement,
+                meta: {
+                    title: '教室不可用时间',
+                    icon: HouseIcon,
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
+                }
+            },
+            { // <--- 新增通用约束规则管理路由 --->
+                path: 'constraints/rules',
+                name: 'constraintRuleManagement',
+                component: ConstraintRuleManagement,
+                meta: {
+                    title: '通用约束规则',
+                    icon: Setting, // 使用 Setting 图标
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER'] // 假设管理员和教务管理员可访问
                 }
             }
-            // 在这里可以继续添加其他子路由，例如学期管理等
-            // {
-            //   path: 'management/semesters',
-            //   name: 'semesterManagement',
-            //   component: () => import('@/views/SemesterManagement.vue'),
-            //   meta: { title: '学期管理', icon: SomeIcon, roles: ['ROLE_ADMIN'] }
-            // },
         ]
     },
-    // 404 页面 (可选)
-    // {
-    //   path: '/:pathMatch(.*)*',
-    //   name: 'NotFound',
-    //   component: () => import('../views/NotFoundView.vue'),
-    //   meta: { title: '页面未找到 - 404', requiresAuth: false }
-    // }
 ];
 
 const router = createRouter({
@@ -133,12 +172,11 @@ const router = createRouter({
     }
 });
 
-// 全局前置路由守卫 (保持不变)
 router.beforeEach((to, from, next) => {
     document.title = to.meta.title ? `${to.meta.title} - 智能AI高校排课系统` : '智能AI高校排课系统';
     const authStore = useAuthStore();
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-    const requiredRoles = to.meta.roles; // 获取当前目标路由定义的角色
+    const requiredRoles = to.meta.roles;
 
     if (requiresAuth) {
         if (!authStore.isAuthenticated) {
@@ -151,15 +189,24 @@ router.beforeEach((to, from, next) => {
                 if (authStore.hasAnyRole(requiredRoles)) {
                     next();
                 } else {
-                    console.warn(`路由守卫: 用户 "${authStore.user?.username}" 没有权限访问 "${to.fullPath}". 需要角色: ${requiredRoles.join(',')}. 用户角色: ${authStore.userRoles.join(',')}`);
-                    next({ path: from.fullPath && from.name !== 'login' ? from.fullPath : '/' });
+                    console.warn(`路由守卫: 用户 "${authStore.user?.username}" 没有权限访问 "${to.fullPath}". 需要角色: ${requiredRoles.join(',')}. 用户角色: ${authStore.userRoles?.join(',') || '无'}`);
+                    ElMessage.warning('您没有权限访问此页面。');
+                    if (from.name === 'login' || !from.fullPath || from.fullPath === to.fullPath) {
+                        next('/');
+                    } else {
+                        next(from.fullPath);
+                    }
                 }
             } else {
                 next();
             }
         }
     } else if (to.name === 'login' && authStore.isAuthenticated) {
-        next({ path: from.fullPath && from.name !== 'login' && from.fullPath !== '/login' ? from.fullPath : '/' });
+        if (from.name === 'login' || !from.fullPath || from.fullPath === '/login') {
+            next('/');
+        } else {
+            next(from.fullPath);
+        }
     } else {
         next();
     }
