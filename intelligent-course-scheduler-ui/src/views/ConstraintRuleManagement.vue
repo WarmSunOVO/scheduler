@@ -29,6 +29,7 @@
 
     <el-card shadow="never" style="margin-top: 15px;">
       <el-table :data="ruleList" v-loading="loadingData" border stripe>
+        <!-- 表格列定义 (与您之前的一致) -->
         <el-table-column prop="name" label="规则名称" width="200" show-overflow-tooltip />
         <el-table-column prop="constraintCode" label="规则编码" width="200" show-overflow-tooltip />
         <el-table-column prop="constraintType" label="约束类型" width="100">
@@ -68,8 +69,9 @@
       />
     </el-card>
 
-    <!-- 新增/编辑/查看 对话框 -->
+    <!-- 新增/编辑/查看 对话框 (与您之前的一致) -->
     <el-dialog :model-value="dialogVisible" :title="dialogTitle" width="750px" @close="handleCloseDialog" draggable :close-on-click-modal="false">
+      <!-- ... (您原有的对话框表单内容) ... -->
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px" status-icon :disabled="isViewMode">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -140,18 +142,53 @@
         <el-button type="primary" @click="handleSubmit" :loading="formSubmitting" v-if="!isViewMode">提交</el-button>
       </template>
     </el-dialog>
+
+    <!-- VVVVVVVV 新增 AI 辅助输入部分 VVVVVVVV -->
+    <el-card shadow="never" style="margin-top: 20px;">
+      <template #header>
+        <div class="clearfix">
+          <span>AI 辅助输入约束 (实验性功能)</span>
+        </div>
+      </template>
+      <el-input
+          v-model="naturalLanguageInput"
+          type="textarea"
+          :rows="3"
+          placeholder="请用自然语言描述您的排课偏好或约束，例如：李老师周三下午不想上课，计算机基础这门课需要多媒体教室..."
+      />
+      <el-button type="primary" @click="submitToAI" :loading="aiLoading" style="margin-top: 10px;">
+        <el-icon style="margin-right: 5px;"><ChatDotRound /></el-icon>
+        获取AI建议
+      </el-button>
+      <div v-if="aiSuggestion" style="margin-top: 15px; padding: 10px; border: 1px solid #dcdfe6; border-radius: 4px; background-color: #f9f9f9;">
+        <p><strong>您的输入:</strong></p>
+        <p style="white-space: pre-wrap;">{{ aiSuggestion.originalText }}</p>
+        <el-divider />
+        <p><strong>AI 理解:</strong></p>
+        <p style="white-space: pre-wrap;">{{ aiSuggestion.interpretation }}</p>
+        <div v-if="aiSuggestion.structuredSuggestion && Object.keys(aiSuggestion.structuredSuggestion).length > 0">
+          <p><strong>AI解析出的结构化信息 (参考):</strong></p>
+          <pre style="background-color: #282c34; color: #abb2bf; padding: 10px; border-radius: 4px; overflow-x: auto;">{{ JSON.stringify(aiSuggestion.structuredSuggestion, null, 2) }}</pre>
+          <small>提示：您可以参考以上结构化信息，在上方“新增规则”或编辑规则时填写“规则编码”和“参数(JSON)”。</small>
+        </div>
+        <p v-if="aiSuggestion.humanReadableSuggestion" style="margin-top: 10px;"><strong>AI 操作提示:</strong> {{ aiSuggestion.humanReadableSuggestion }}</p>
+      </div>
+    </el-card>
+    <!-- ^^^^^^^^^^ 新增 AI 辅助输入部分 ^^^^^^^^^^ -->
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Search as SearchIcon, View as ViewIcon } from '@element-plus/icons-vue';
+// 更新图标导入，添加 ChatDotRound
+import { Plus, Edit, Delete, Search as SearchIcon, View as ViewIcon, ChatDotRound } from '@element-plus/icons-vue';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
-// Moved PREDEFINED_CONSTRAINT_CODES to the top
 const PREDEFINED_CONSTRAINT_CODES = [
+  // ... (您之前的 PREDEFINED_CONSTRAINT_CODES 定义保持不变)
   { value: 'TEACHER_TIME_PREFERENCE', label: '教师时间偏好', description: '设置教师对特定时间段的偏好程度 (软约束)', defaultConstraintType: 'SOFT', defaultTargetEntityType: 'TEACHER', parameterFields: [ { name: 'dayOfWeek', label: '星期几', type: 'select', options: [{value:1, label:'周一'},{value:2, label:'周二'},{value:3, label:'周三'},{value:4, label:'周四'},{value:5, label:'周五'},{value:6, label:'周六'},{value:7, label:'周日'}], required: true }, { name: 'startPeriod', label: '开始节次', type: 'number', min: 1, required: true }, { name: 'endPeriod', label: '结束节次', type: 'number', min: 1, required: true }, { name: 'preferenceScore', label: '偏好分值', type: 'number', placeholder: '-2 到 2', required: true }]},
   { value: 'COURSE_FIXED_SCHEDULE', label: '课程固定排课', description: '将特定课程固定在某个时间段和教室 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'COURSE', parameterFields: [ { name: 'dayOfWeek', label: '星期几', type: 'select', options: [{value:1, label:'周一'},{value:2, label:'周二'},{value:3, label:'周三'},{value:4, label:'周四'},{value:5, label:'周五'},{value:6, label:'周六'},{value:7, label:'周日'}], required: true }, { name: 'startPeriod', label: '开始节次', type: 'number', min: 1, required: true }, { name: 'endPeriod', label: '结束节次', type: 'number', min: 1, required: true }, { name: 'roomId', label: '教室ID (可选)', type: 'number', required: false }]},
   { value: 'ROOM_TYPE_FOR_COURSE', label: '课程教室类型要求', description: '指定某门课程必须使用特定类型的教室 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'COURSE', parameterFields: [ { name: 'requiredRoomType', label: '要求教室类型', type: 'text', placeholder: '例如: 多媒体教室', required: true }]},
@@ -162,256 +199,80 @@ const PREDEFINED_CONSTRAINT_CODES = [
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const authStore = useAuthStore();
 
-// 筛选参数
-const filterParams = reactive({
-  name: '',
-  constraintCode: '',
-  constraintType: null,
-  semesterId: null,
-});
-
+// --- 您已有的筛选、列表、分页、对话框相关 ref 和 reactive 定义 (保持不变) ---
+const filterParams = reactive({ name: '', constraintCode: '', constraintType: null, semesterId: null });
 const semesterList = ref([]);
 const ruleList = ref([]);
 const loadingData = ref(false);
-
 const currentPage = ref(1);
 const pageSize = ref(10);
 const totalItems = ref(0);
-
 const dialogVisible = ref(false);
 const dialogMode = ref('add');
 const isViewMode = computed(() => dialogMode.value === 'view');
 const dialogTitle = ref('新增约束规则');
-const initialForm = {
-  id: null,
-  name: '',
-  constraintCode: '',
-  constraintType: 'HARD',
-  targetEntityType: 'GLOBAL',
-  targetEntityId: null,
-  semesterId: null,
-  parametersJsonString: '{}',
-  penaltyWeight: 0,
-  description: '',
-  isActive: true,
-};
+const initialForm = { id: null, name: '', constraintCode: '', constraintType: 'HARD', targetEntityType: 'GLOBAL', targetEntityId: null, semesterId: null, parametersJsonString: '{}', penaltyWeight: 0, description: '', isActive: true };
 const form = reactive({ ...initialForm });
 const formRef = ref(null);
 const formSubmitting = ref(false);
-
-const rules = reactive({
+const rules = reactive({ /* ... 您已有的 rules ... */
   name: [{ required: true, message: '规则名称不能为空', trigger: 'blur' }],
   constraintCode: [{ required: true, message: '规则编码不能为空', trigger: ['blur', 'change'] }],
   constraintType: [{ required: true, message: '约束类型不能为空', trigger: 'change' }],
   targetEntityType: [{ required: true, message: '目标实体类型不能为空', trigger: 'change' }],
-  targetEntityId: [
-    { validator: (rule, value, callback) => {
-        if (form.targetEntityType !== 'GLOBAL' && (value === null || value === undefined || value === '')) {
-          callback(new Error('非全局约束的目标实体ID不能为空'));
-        } else {
-          callback();
-        }
-      }, trigger: 'blur' }
-  ],
-  parametersJsonString: [
-    { validator: (rule, value, callback) => {
-        try {
-          JSON.parse(value);
-          callback();
-        } catch (e) {
-          callback(new Error('参数必须是合法的JSON格式'));
-        }
-      }, trigger: 'blur' }
-  ],
-  penaltyWeight: [
-    { validator: (rule, value, callback) => {
-        if (form.constraintType === 'SOFT' && (value === null || value === undefined || value < 0)) {
-          callback(new Error('软约束的惩罚权重不能为空且大于等于0'));
-        } else {
-          callback();
-        }
-      }, trigger: 'blur'}
-  ]
+  targetEntityId: [ { validator: (rule, value, callback) => { if (form.targetEntityType !== 'GLOBAL' && (value === null || value === undefined || value === '')) { callback(new Error('非全局约束的目标实体ID不能为空')); } else { callback(); } }, trigger: 'blur' } ],
+  parametersJsonString: [ { validator: (rule, value, callback) => { try { JSON.parse(value); callback(); } catch (e) { callback(new Error('参数必须是合法的JSON格式')); } }, trigger: 'blur' } ],
+  penaltyWeight: [ { validator: (rule, value, callback) => { if (form.constraintType === 'SOFT' && (value === null || value === undefined || value < 0)) { callback(new Error('软约束的惩罚权重不能为空且大于等于0')); } else { callback(); } }, trigger: 'blur'} ]
 });
 
-const fetchSemesters = async () => {
+
+// --- VVVVVVVV 新增 AI 相关 ref 和方法 VVVVVVVV ---
+const naturalLanguageInput = ref('');
+const aiLoading = ref(false);
+const aiSuggestion = ref(null); // 用于存储 AiSuggestionResponseDto
+
+const submitToAI = async () => {
+  if (!naturalLanguageInput.value.trim()) {
+    ElMessage.warning('请输入您的描述后再提交给AI。');
+    return;
+  }
+  aiLoading.value = true;
+  aiSuggestion.value = null; // 清空上次建议
   try {
-    const response = await axios.get(`${API_BASE_URL}/semesters/list`);
-    semesterList.value = response.data;
-  } catch (error) {
-    ElMessage.error('获取学期列表失败！');
-  }
-};
-
-const fetchData = async (page = currentPage.value, size = pageSize.value) => {
-  loadingData.value = true;
-  const params = {
-    page: page - 1,
-    size: size,
-    sort: 'id,desc',
-    ...filterParams,
-  };
-  if (params.semesterId === 'null') {
-    params.semesterId = null;
-  }
-  Object.keys(params).forEach(key => {
-    if (params[key] === null || params[key] === '') {
-      delete params[key];
-    }
-  });
-
-  try {
-    const response = await axios.get(`${API_BASE_URL}/constraint-rules`, { params });
-    ruleList.value = response.data.content;
-    totalItems.value = response.data.totalElements;
-    currentPage.value = response.data.number + 1;
-  } catch (error) {
-    ElMessage.error('获取约束规则列表失败！');
-    console.error("Fetch constraint rules error:", error);
-    ruleList.value = [];
-    totalItems.value = 0;
-  } finally {
-    loadingData.value = false;
-  }
-};
-
-const handleSizeChange = (val) => {
-  pageSize.value = val;
-  fetchData(1, val);
-};
-const handleCurrentChange = (val) => {
-  currentPage.value = val;
-  fetchData(val, pageSize.value);
-};
-
-const formatTargetEntityType = (row, column, cellValue) => {
-  const map = {
-    GLOBAL: '全局',
-    TEACHER: '教师',
-    CLASS_GROUP: '班级/教学对象',
-    COURSE: '课程',
-    ROOM: '教室',
-    TEACHING_TASK: '教学任务'
-  };
-  return map[cellValue] || cellValue;
-};
-
-const handleConstraintCodeChange = (selectedCode) => {
-  const selectedDefinition = PREDEFINED_CONSTRAINT_CODES.find(c => c.value === selectedCode);
-  if (selectedDefinition) {
-    if (dialogMode.value === 'add') {
-      form.name = selectedDefinition.label;
-      form.constraintType = selectedDefinition.defaultConstraintType || 'HARD';
-      form.targetEntityType = selectedDefinition.defaultTargetEntityType || 'GLOBAL';
-      if (selectedDefinition.parameterFields && selectedDefinition.parameterFields.length > 0) {
-        const paramsTemplate = {};
-        selectedDefinition.parameterFields.forEach(field => {
-          paramsTemplate[field.name] = field.defaultValue !== undefined ? field.defaultValue : `_REPLACE_WITH_${field.type.toUpperCase()}_VALUE_`;
-        });
-        form.parametersJsonString = JSON.stringify(paramsTemplate, null, 2);
-      } else {
-        form.parametersJsonString = '{}';
-      }
-    }
-  }
-};
-
-const handleTargetEntityTypeChange = () => {
-  if(form.targetEntityType === 'GLOBAL') {
-    form.targetEntityId = null;
-    form.semesterId = null;
-  }
-};
-
-const handleOpenDialog = (rowData = null, viewMode = false) => {
-  dialogMode.value = viewMode ? 'view' : (rowData ? 'edit' : 'add');
-  if (rowData) {
-    dialogTitle.value = viewMode ? `查看规则: ${rowData.name}` : `编辑规则: ${rowData.name}`;
-    Object.assign(form, JSON.parse(JSON.stringify(rowData)));
-    form.parametersJsonString = JSON.stringify(rowData.parametersJson || {}, null, 2);
-  } else {
-    dialogTitle.value = '新增约束规则';
-    Object.assign(form, JSON.parse(JSON.stringify(initialForm)));
-  }
-  dialogVisible.value = true;
-  nextTick(() => {
-    formRef.value?.clearValidate();
-  });
-};
-
-const handleCloseDialog = () => {
-  dialogVisible.value = false;
-  // formRef.value?.resetFields(); // resetFields might not work well with deeply nested or programmatically changed initialForm
-  Object.assign(form, JSON.parse(JSON.stringify(initialForm))); // More robust reset
-};
-
-const handleSubmit = async () => {
-  if (!formRef.value) return;
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      formSubmitting.value = true;
-      let paramsJsonObj;
-      try {
-        paramsJsonObj = JSON.parse(form.parametersJsonString);
-      } catch (e) {
-        ElMessage.error('参数JSON格式不正确！');
-        formSubmitting.value = false;
-        return;
-      }
-
-      const payload = { ...form, parametersJson: paramsJsonObj };
-      delete payload.parametersJsonString;
-      const currentId = form.id; // Store id before deleting from payload for add mode
-      if(dialogMode.value === 'add') {
-        delete payload.id;
-      }
-
-
-      if (payload.targetEntityType === 'GLOBAL') {
-        payload.targetEntityId = null;
-        payload.semesterId = null;
-      }
-      if (payload.constraintType === 'HARD') {
-        delete payload.penaltyWeight;
-      }
-
-      try {
-        if (dialogMode.value === 'add') {
-          await axios.post(`${API_BASE_URL}/constraint-rules`, payload);
-          ElMessage.success('新增成功！');
-        } else {
-          await axios.put(`${API_BASE_URL}/constraint-rules/${currentId}`, payload); // Use stored id for update
-          ElMessage.success('更新成功！');
-        }
-        dialogVisible.value = false;
-        await fetchData();
-      } catch (error) {
-        ElMessage.error(error.response?.data?.message || '操作失败！');
-        console.error("Submit constraint rule error:", error);
-      } finally {
-        formSubmitting.value = false;
-      }
-    }
-  });
-};
-
-const handleDelete = async (id) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这条约束规则吗？', '警告', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning',
+    const response = await axios.post(`${API_BASE_URL}/ai/process-text`, {
+      inputText: naturalLanguageInput.value
     });
-    await axios.delete(`${API_BASE_URL}/constraint-rules/${id}`);
-    ElMessage.success('删除成功！');
-    await fetchData();
+    aiSuggestion.value = response.data;
+    ElMessage.success('AI建议已获取！请参考下方信息。');
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || '删除失败！');
-      console.error("Delete constraint rule error:", error);
-    }
+    ElMessage.error(error.response?.data?.message || '调用AI服务失败！');
+    console.error("AI process error:", error);
+    aiSuggestion.value = {
+      originalText: naturalLanguageInput.value,
+      interpretation: "调用AI服务时出错，请检查后端日志或网络连接。",
+      suggestionType: "ERROR",
+      structuredSuggestion: null,
+      humanReadableSuggestion: "无法从AI获取有效建议。"
+    };
+  } finally {
+    aiLoading.value = false;
   }
 };
+// --- ^^^^^^^^ 新增 AI 相关 ref 和方法 ^^^^^^^^ ---
+
+
+// --- 您已有的方法 (fetchSemesters, fetchData, handleSizeChange, etc.) 保持不变 ---
+const fetchSemesters = async () => { /* ... */ try { const response = await axios.get(`${API_BASE_URL}/semesters/list`); semesterList.value = response.data; } catch (error) { ElMessage.error('获取学期列表失败！'); }};
+const fetchData = async (page = currentPage.value, size = pageSize.value) => { /* ... */ loadingData.value = true; const params = { page: page - 1, size: size, sort: 'id,desc', ...filterParams, }; if (params.semesterId === 'null') { params.semesterId = null; } Object.keys(params).forEach(key => { if (params[key] === null || params[key] === '') { delete params[key]; } }); try { const response = await axios.get(`${API_BASE_URL}/constraint-rules`, { params }); ruleList.value = response.data.content; totalItems.value = response.data.totalElements; currentPage.value = response.data.number + 1; } catch (error) { ElMessage.error('获取约束规则列表失败！'); console.error("Fetch constraint rules error:", error); ruleList.value = []; totalItems.value = 0; } finally { loadingData.value = false; } };
+const handleSizeChange = (val) => { pageSize.value = val; fetchData(1, val); };
+const handleCurrentChange = (val) => { currentPage.value = val; fetchData(val, pageSize.value); };
+const formatTargetEntityType = (row, column, cellValue) => { const map = { GLOBAL: '全局', TEACHER: '教师', CLASS_GROUP: '班级/教学对象', COURSE: '课程', ROOM: '教室', TEACHING_TASK: '教学任务' }; return map[cellValue] || cellValue; };
+const handleConstraintCodeChange = (selectedCode) => { const selectedDefinition = PREDEFINED_CONSTRAINT_CODES.find(c => c.value === selectedCode); if (selectedDefinition) { if (dialogMode.value === 'add') { form.name = selectedDefinition.label; form.constraintType = selectedDefinition.defaultConstraintType || 'HARD'; form.targetEntityType = selectedDefinition.defaultTargetEntityType || 'GLOBAL'; if (selectedDefinition.parameterFields && selectedDefinition.parameterFields.length > 0) { const paramsTemplate = {}; selectedDefinition.parameterFields.forEach(field => { paramsTemplate[field.name] = field.defaultValue !== undefined ? field.defaultValue : `_REPLACE_WITH_${field.type.toUpperCase()}_VALUE_`; }); form.parametersJsonString = JSON.stringify(paramsTemplate, null, 2); } else { form.parametersJsonString = '{}'; } } } };
+const handleTargetEntityTypeChange = () => { if(form.targetEntityType === 'GLOBAL') { form.targetEntityId = null; form.semesterId = null; }};
+const handleOpenDialog = (rowData = null, viewMode = false) => { dialogMode.value = viewMode ? 'view' : (rowData ? 'edit' : 'add'); if (rowData) { dialogTitle.value = viewMode ? `查看规则: ${rowData.name}` : `编辑规则: ${rowData.name}`; Object.assign(form, JSON.parse(JSON.stringify(rowData))); form.parametersJsonString = JSON.stringify(rowData.parametersJson || {}, null, 2); } else { dialogTitle.value = '新增约束规则'; Object.assign(form, JSON.parse(JSON.stringify(initialForm))); } dialogVisible.value = true; nextTick(() => { formRef.value?.clearValidate(); }); };
+const handleCloseDialog = () => { dialogVisible.value = false; Object.assign(form, JSON.parse(JSON.stringify(initialForm))); };
+const handleSubmit = async () => { if (!formRef.value) return; await formRef.value.validate(async (valid) => { if (valid) { formSubmitting.value = true; let paramsJsonObj; try { paramsJsonObj = JSON.parse(form.parametersJsonString); } catch (e) { ElMessage.error('参数JSON格式不正确！'); formSubmitting.value = false; return; } const payload = { ...form, parametersJson: paramsJsonObj }; delete payload.parametersJsonString; const currentId = form.id; if(dialogMode.value === 'add') { delete payload.id; } if (payload.targetEntityType === 'GLOBAL') { payload.targetEntityId = null; payload.semesterId = null; } if (payload.constraintType === 'HARD') { delete payload.penaltyWeight; } try { if (dialogMode.value === 'add') { await axios.post(`${API_BASE_URL}/constraint-rules`, payload); ElMessage.success('新增成功！'); } else { await axios.put(`${API_BASE_URL}/constraint-rules/${currentId}`, payload); ElMessage.success('更新成功！'); } dialogVisible.value = false; await fetchData(); } catch (error) { ElMessage.error(error.response?.data?.message || '操作失败！'); console.error("Submit constraint rule error:", error); } finally { formSubmitting.value = false; } } }); };
+const handleDelete = async (id) => { try { await ElMessageBox.confirm('确定要删除这条约束规则吗？', '警告', { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', }); await axios.delete(`${API_BASE_URL}/constraint-rules/${id}`); ElMessage.success('删除成功！'); await fetchData(); } catch (error) { if (error !== 'cancel') { ElMessage.error(error.response?.data?.message || '删除失败！'); console.error("Delete constraint rule error:", error); } } };
 
 onMounted(() => {
   fetchSemesters();
@@ -421,18 +282,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.constraint-rule-management-container {
-  padding: 15px;
-}
-.el-card {
-  margin-bottom: 15px;
-}
+/* 您已有的样式保持不变 */
+.constraint-rule-management-container { padding: 15px; }
+.el-card { margin-bottom: 15px; }
 .clearfix:before,
-.clearfix:after {
-  display: table;
-  content: "";
-}
-.clearfix:after {
-  clear: both
+.clearfix:after { display: table; content: ""; }
+.clearfix:after { clear: both }
+/* 为 AI 建议部分的 pre 标签添加样式 */
+pre {
+  background-color: #f4f4f5;
+  border: 1px solid #e9e9eb;
+  padding: 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;       /* CSS3 */
+  white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+  white-space: -pre-wrap;      /* Opera 4-6 */
+  white-space: -o-pre-wrap;    /* Opera 7 */
+  word-wrap: break-word;       /* Internet Explorer 5.5+ */
+  font-family: monospace;
 }
 </style>

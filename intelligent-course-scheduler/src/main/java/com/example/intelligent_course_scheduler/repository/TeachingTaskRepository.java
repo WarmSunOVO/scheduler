@@ -15,4 +15,6 @@ public interface TeachingTaskRepository extends JpaRepository<TeachingTask, Long
     boolean existsBySemesterIdAndCourseIdAndTargetGroup(Long semesterId, Long courseId, String targetGroup);
     // (可选) 检查是否存在相同的任务，但在更新时排除自身
     boolean existsBySemesterIdAndCourseIdAndTargetGroupAndIdNot(Long semesterId, Long courseId, String targetGroup, Long id);
+
+    List<TeachingTask> findBySemesterId(Long semesterId);
 }

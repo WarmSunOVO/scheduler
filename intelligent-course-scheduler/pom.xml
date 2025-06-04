@@ -90,15 +90,16 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Optional: Spring AI (Keep commented out until you are ready to integrate it) -->
-        <!--
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
-            <version>1.0.0-M1</version> <!- Or latest stable version ->
+            <!-- 使用最新的 Spring AI 版本，请查阅官方文档 -->
+            <version>1.0.0-M6</version> <!-- 示例版本，请替换为最新稳定版或里程碑版 -->
         </dependency>
-        -->
-
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
     </dependencies>
 
     <!-- Optional: Spring AI Maven Repository (if using milestones/snapshots) -->

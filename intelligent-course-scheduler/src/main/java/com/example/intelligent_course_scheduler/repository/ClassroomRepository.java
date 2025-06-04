@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor; // 用于动态条件查询
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 //创建数据访问层
@@ -29,4 +30,6 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long>, Jpa
 
     // JpaSpecificationExecutor 接口提供了使用 Specification 进行复杂动态查询的能力
     // 例如：findAll(Specification<T> spec, Pageable pageable)
+
+    List<Classroom> findAllByStatus(String status);
 }

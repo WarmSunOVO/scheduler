@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus';
 // 视图组件导入
 import LoginView from '../views/LoginView.vue';
 import MainLayout from '../layouts/MainLayout.vue';
+// --- 保持您现有的直接从 views 导入的风格 ---
 import ClassroomManagement from '../views/ClassroomManagement.vue';
 import TeacherManagement from '../views/TeacherManagement.vue';
 import UserManagement from '../views/UserManagement.vue';
@@ -13,12 +14,14 @@ import TeachingTaskManagement from '../views/TeachingTaskManagement.vue';
 import TeacherUnavailabilityManagement from '../views/TeacherUnavailabilityManagement.vue';
 import ClassGroupUnavailabilityManagement from '../views/ClassGroupUnavailabilityManagement.vue';
 import RoomUnavailabilityManagement from '../views/RoomUnavailabilityManagement.vue';
-// 新增导入：通用约束规则管理视图
 import ConstraintRuleManagement from '../views/ConstraintRuleManagement.vue';
-
+// --- scheduling 包下的视图 ---
+import AutomatedSchedulingPage from '../views/scheduling/AutomatedSchedulingPage.vue';
+// import ScheduleDisplayPage   from "@/views/scheduling/ScheduleDisplayPage.vue"; // ScheduleDisplayPage 暂时不用，因为功能合并了
 
 // 引入 Element Plus Icons
 import {
+    Cpu,                    // 用于自动排课
     Setting,                // 用于通用约束规则管理
     School,
     User as UserIcon,
@@ -29,7 +32,7 @@ import {
     Tickets as TicketsIcon,
     Lock as LockIcon,
     House as HouseIcon,
-    View as ViewIcon        // ConstraintRuleManagement 中用到了 ViewIcon, 确保这里有 (虽然路由meta不用它)
+    View as ViewIcon
 } from '@element-plus/icons-vue';
 
 // 引入 Pinia store
@@ -48,14 +51,14 @@ const routes = [
     {
         path: '/',
         component: MainLayout,
-        redirect: '/management/classrooms',
+        redirect: '/management/classrooms', // 或者您希望的其他默认页
         meta: {
             requiresAuth: true
         },
         children: [
-            // --- 基础数据管理 ---
+            // --- 基础数据管理 (假设这些都在 /management/ 路径下) ---
             {
-                path: 'management/semesters',
+                path: 'management/semesters', // 为了统一，建议都带上前缀，或都不带
                 name: 'semesterManagement',
                 component: SemesterManagement,
                 meta: {
@@ -106,7 +109,7 @@ const routes = [
             },
             // --- 核心业务 ---
             {
-                path: 'teaching-tasks',
+                path: 'teaching-tasks', // 这个路径没有 'management/' 前缀
                 name: 'teachingTaskManagement',
                 component: TeachingTaskManagement,
                 meta: {
@@ -115,7 +118,7 @@ const routes = [
                     roles: ['ROLE_ADMIN', 'ROLE_TEACHER']
                 }
             },
-            // --- 约束管理 ---
+            // --- 约束管理 (假设都在 /constraints/ 路径下) ---
             {
                 path: 'constraints/teacher-unavailability',
                 name: 'teacherUnavailabilityManagement',
@@ -132,7 +135,7 @@ const routes = [
                 component: ClassGroupUnavailabilityManagement,
                 meta: {
                     title: '班级不可用时间',
-                    icon: UserFilled, // 或者您选择的其他图标
+                    icon: UserFilled,
                     roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
                 }
             },
@@ -146,18 +149,31 @@ const routes = [
                     roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
                 }
             },
-            { // <--- 新增通用约束规则管理路由 --->
+            {
                 path: 'constraints/rules',
                 name: 'constraintRuleManagement',
                 component: ConstraintRuleManagement,
                 meta: {
                     title: '通用约束规则',
-                    icon: Setting, // 使用 Setting 图标
-                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER'] // 假设管理员和教务管理员可访问
+                    icon: Setting,
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
+                }
+            },
+            // --- 排课功能 (整合为一个) ---
+            {
+                path: 'scheduling/auto', // 保留这个路径
+                name: 'autoScheduling',    // 名称可以简化
+                component: AutomatedSchedulingPage,
+                meta: {
+                    title: '自动排课',      // 统一标题
+                    icon: Cpu,
+                    roles: ['ROLE_ADMIN', 'ROLE_MANAGER']
                 }
             }
+            // '/scheduling/auto-display' 路由已被移除
         ]
     },
+
 ];
 
 const router = createRouter({
@@ -172,6 +188,7 @@ const router = createRouter({
     }
 });
 
+// 全局前置路由守卫 (保持您原有的逻辑)
 router.beforeEach((to, from, next) => {
     document.title = to.meta.title ? `${to.meta.title} - 智能AI高校排课系统` : '智能AI高校排课系统';
     const authStore = useAuthStore();
