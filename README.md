@@ -56,10 +56,6 @@
     *   **后端 (Java/Spring Boot)**：推荐 IntelliJ IDEA (Community 或 Ultimate版均可) 或 Eclipse IDE for Enterprise Java and Web Developers。
     *   **前端 (Vue)**：推荐 Visual Studio Code (VS Code) 或 WebStorm。
 
-7.  **(可选) Ollama (如果使用本地AI模型)**:
-    *   如果项目的 Spring AI 配置为使用本地运行的 Ollama 模型（例如 Mistral, Llama2 等），您需要安装 Ollama for Windows: [https://ollama.com/download/windows](https://ollama.com/download/windows)。
-    *   安装后，通过命令提示符运行 `ollama pull <model_name>` (例如 `ollama pull mistral`) 来下载项目中使用的模型。确保 Ollama 服务正在运行。
-
 ### 二、项目设置与配置
 
 1.  **克隆项目仓库**:
