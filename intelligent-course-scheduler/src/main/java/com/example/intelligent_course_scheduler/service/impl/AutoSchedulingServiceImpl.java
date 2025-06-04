@@ -378,6 +378,14 @@ public class AutoSchedulingServiceImpl implements AutoSchedulingService {
                 logger.trace("            GLOBAL_NO_FRIDAY_AFTERNOON 通过 (或不适用).");
                 break;
 
+            case "GLOBAL_NO_WEDNESDAY":
+                if (slot.getDayOfWeek() == 3) { // 周三是3
+                    logger.trace("            GLOBAL_NO_WEDNESDAY 冲突: 尝试时间 {} 在周三禁用时段.", slot);
+                    return false;
+                }
+                logger.trace("            GLOBAL_NO_WEDNESDAY 通过 (或不适用).");
+                break;
+
             case "TEACHER_MAX_DAILY_PERIODS":
                 if (rule.getTargetEntityType() == TargetEntityType.TEACHER && rule.getTargetEntityId().equals(task.getTeacher().getId())) {
                     Integer maxPeriods = 安全转换ToInt(params.get("maxPeriods"));

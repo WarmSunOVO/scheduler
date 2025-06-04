@@ -193,8 +193,8 @@ const PREDEFINED_CONSTRAINT_CODES = [
   { value: 'ROOM_TYPE_FOR_COURSE', label: '课程教室类型要求', description: '指定某门课程必须使用特定类型的教室 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'COURSE', parameterFields: [ { name: 'requiredRoomType', label: '要求教室类型', type: 'text', placeholder: '例如: 多媒体教室', required: true }]},
   { value: 'AVOID_CLASS_CONSECUTIVE_EVENTS', label: '班级避免连续活动', description: '一个班级一天内最多连续上多少节课 (软约束)', defaultConstraintType: 'SOFT', defaultTargetEntityType: 'CLASS_GROUP', parameterFields: [ { name: 'maxConsecutivePeriods', label: '最大连续节次数', type: 'number', min: 1, required: true }]},
   { value: 'GLOBAL_NO_FRIDAY_AFTERNOON', label: '全局周五下午无课', description: '全局设置周五下午不安排任何课程 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'GLOBAL', parameterFields: [{ name: 'afternoonStartPeriod', label: '下午开始节次', type: 'number', min: 1, required: true, defaultValue: 5 }]},
-  {
-    value: 'TEACHER_MAX_DAILY_PERIODS', // 规则编码，需要与后端 AutoSchedulingServiceImpl 中 evaluateGenericHardConstraint 的 case 匹配
+  { value: 'GLOBAL_NO_WEDNESDAY', label: '全局周三无课', description: '全局设置周三不安排任何课程 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'GLOBAL', parameterFields: []},
+  { value: 'TEACHER_MAX_DAILY_PERIODS', // 规则编码，需要与后端 AutoSchedulingServiceImpl 中 evaluateGenericHardConstraint 的 case 匹配
     label: '教师每日最大课时',
     description: '限制一个教师一天内最多可以上的总节数 (硬约束)',
     defaultConstraintType: 'HARD',

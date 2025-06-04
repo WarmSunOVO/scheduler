@@ -76,7 +76,7 @@ public class SemesterServiceImpl implements SemesterService {
     public SemesterDto updateSemester(Long id, SemesterDto semesterDto) {
         Semester existingSemester = semesterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("错误：找不到ID为 " + id + " 的学期"));
-
+    
         // 检查更新后的学年和名称组合是否与已存在的其他学期冲突
         if (!existingSemester.getAcademicYear().equals(semesterDto.getAcademicYear()) ||
                 !existingSemester.getName().equals(semesterDto.getName())) {
@@ -87,20 +87,24 @@ public class SemesterServiceImpl implements SemesterService {
                 }
             }
         }
-
+    
         // 如果将此学期设为当前学期，则将其他学期设为非当前
         if (Boolean.TRUE.equals(semesterDto.getIsCurrent()) && (existingSemester.getIsCurrent() == null || !existingSemester.getIsCurrent())) {
             setOnlyOneCurrentSemester(id);
         }
-
-
+    
         existingSemester.setAcademicYear(semesterDto.getAcademicYear());
         existingSemester.setName(semesterDto.getName());
         existingSemester.setStartDate(semesterDto.getStartDate());
         existingSemester.setEndDate(semesterDto.getEndDate());
         existingSemester.setIsCurrent(semesterDto.getIsCurrent() != null ? semesterDto.getIsCurrent() : false);
         existingSemester.setRemarks(semesterDto.getRemarks());
-
+        
+        // 新增字段更新
+        existingSemester.setTotalWeeks(semesterDto.getTotalWeeks());
+        existingSemester.setPeriodsPerDay(semesterDto.getPeriodsPerDay());
+        existingSemester.setDaysPerWeek(semesterDto.getDaysPerWeek());
+    
         return SemesterDto.fromEntity(semesterRepository.save(existingSemester));
     }
 

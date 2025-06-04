@@ -30,6 +30,12 @@ public class SemesterDto {
     private LocalDate endDate;
     private Boolean isCurrent;
     private String remarks;
+    
+    // 新增字段
+    private Integer totalWeeks;
+    private Integer periodsPerDay;
+    private Integer daysPerWeek;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -43,6 +49,9 @@ public class SemesterDto {
                 .endDate(semester.getEndDate())
                 .isCurrent(semester.getIsCurrent())
                 .remarks(semester.getRemarks())
+                .totalWeeks(semester.getTotalWeeks())
+                .periodsPerDay(semester.getPeriodsPerDay())
+                .daysPerWeek(semester.getDaysPerWeek())
                 .createdAt(semester.getCreatedAt())
                 .updatedAt(semester.getUpdatedAt())
                 .build();
@@ -56,8 +65,11 @@ public class SemesterDto {
                 .endDate(this.endDate)
                 .isCurrent(this.isCurrent != null ? this.isCurrent : false)
                 .remarks(this.remarks)
+                .totalWeeks(this.totalWeeks)
+                .periodsPerDay(this.periodsPerDay)
+                .daysPerWeek(this.daysPerWeek)
                 .build();
-        if (this.id != null) { // 如果是更新，保留ID
+        if (this.id != null) {
             semester.setId(this.id);
         }
         return semester;
