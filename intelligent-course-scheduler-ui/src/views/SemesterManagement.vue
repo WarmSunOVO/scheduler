@@ -35,18 +35,23 @@
       <el-table-column prop="id" label="ID" width="80" sortable="custom" />
       <el-table-column prop="academicYear" label="学年" width="150" sortable="custom" />
       <el-table-column prop="name" label="学期名称" width="150" sortable="custom" />
-      <el-table-column prop="startDate" label="开始日期" width="150" :formatter="formatDate" />
-      <el-table-column prop="endDate" label="结束日期" width="150" :formatter="formatDate" />
-      <el-table-column prop="isCurrent" label="当前学期" width="120" align="center">
+      <el-table-column prop="startDate" label="开始日期" width="120" :formatter="formatDate" />
+      <el-table-column prop="endDate" label="结束日期" width="120" :formatter="formatDate" />
+      <!-- VVVVVV 新增的列 VVVVVV -->
+      <el-table-column prop="totalWeeks" label="总周数" width="90" align="center"/>
+      <el-table-column prop="periodsPerDay" label="每日节次" width="100" align="center"/>
+      <el-table-column prop="daysPerWeek" label="每周天数" width="100" align="center"/>
+      <!-- ^^^^^^ 新增的列 ^^^^^^ -->
+      <el-table-column prop="isCurrent" label="当前学期" width="100" align="center">
         <template #default="scope">
           <el-tag :type="scope.row.isCurrent ? 'success' : 'info'">
             {{ scope.row.isCurrent ? '是' : '否' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="remarks" label="备注" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="remarks" label="备注" min-width="180" show-overflow-tooltip />
       <el-table-column prop="createdAt" label="创建时间" width="170" :formatter="formatDateTime" />
-      <el-table-column label="操作" width="180" fixed="right" align="center">
+      <el-table-column label="操作" width="130" fixed="right" align="center">
         <template #default="scope">
           <el-button
               v-if="authStore.hasRole('ROLE_ADMIN')"
@@ -64,8 +69,8 @@
                      @size-change="handleSizeChange" @current-change="handleCurrentChange" />
     </div>
 
-    <el-dialog :model-value="dialogVisible" :title="dialogTitle" width="600px" @close="handleCloseDialog" draggable :close-on-click-modal="false">
-      <el-form :model="semesterForm" :rules="semesterFormRules" ref="semesterFormRef" label-width="100px" status-icon>
+    <el-dialog :model-value="dialogVisible" :title="dialogTitle" width="650px" @close="handleCloseDialog" draggable :close-on-click-modal="false">
+      <el-form :model="semesterForm" :rules="semesterFormRules" ref="semesterFormRef" label-width="120px" status-icon>
         <el-form-item label="学年" prop="academicYear">
           <el-input v-model="semesterForm.academicYear" placeholder="例如：2024-2025" />
         </el-form-item>
@@ -76,12 +81,37 @@
             <el-option label="夏季学期" value="夏季学期"></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="开始日期" prop="startDate">
-          <el-date-picker v-model="semesterForm.startDate" type="date" placeholder="选择开始日期" style="width:100%;" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="结束日期" prop="endDate">
-          <el-date-picker v-model="semesterForm.endDate" type="date" placeholder="选择结束日期" style="width:100%;" value-format="YYYY-MM-DD" />
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="开始日期" prop="startDate">
+              <el-date-picker v-model="semesterForm.startDate" type="date" placeholder="选择开始日期" style="width:100%;" value-format="YYYY-MM-DD" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="结束日期" prop="endDate">
+              <el-date-picker v-model="semesterForm.endDate" type="date" placeholder="选择结束日期" style="width:100%;" value-format="YYYY-MM-DD" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <!-- VVVVVV 新增的表单项 VVVVVV -->
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="总周数" prop="totalWeeks">
+              <el-input-number v-model="semesterForm.totalWeeks" :min="1" :max="52" placeholder="例如: 18" style="width: 100%;" controls-position="right"/>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="每日总节次" prop="periodsPerDay">
+              <el-input-number v-model="semesterForm.periodsPerDay" :min="1" :max="20" placeholder="例如: 10" style="width: 100%;" controls-position="right"/>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="每周上课天数" prop="daysPerWeek">
+              <el-input-number v-model="semesterForm.daysPerWeek" :min="1" :max="7" placeholder="例如: 5" style="width: 100%;" controls-position="right"/>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <!-- ^^^^^^ 新增的表单项 ^^^^^^ -->
         <el-form-item label="设为当前" prop="isCurrent">
           <el-switch v-model="semesterForm.isCurrent" />
         </el-form-item>
@@ -103,8 +133,9 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete, Search as SearchIcon, Refresh as RefreshIcon } from '@element-plus/icons-vue';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
+import dayjs from 'dayjs'; // 引入 dayjs
 
-const API_SEMESTERS_URL = '/api/semesters'; // API端点
+const API_SEMESTERS_URL = '/api/semesters';
 const authStore = useAuthStore();
 
 const tableData = ref([]);
@@ -118,8 +149,18 @@ const searchParams = reactive({ query: '' });
 const searchFormRef = ref(null);
 
 const initialSemesterForm = {
-  id: null, academicYear: '', name: '', startDate: null, endDate: null,
-  isCurrent: false, remarks: '',
+  id: null,
+  academicYear: dayjs().format('YYYY') + '-' + (dayjs().year() + 1), // 默认当年-下一年
+  name: '', // 学期名称让用户选择或输入
+  startDate: dayjs().format('YYYY-MM-DD'), // 默认今天
+  endDate: dayjs().add(4, 'month').format('YYYY-MM-DD'), // 默认四个月后
+  isCurrent: false,
+  remarks: '',
+  // VVVVVV 新增字段的默认值 VVVVVV
+  totalWeeks: 18,
+  periodsPerDay: 10,
+  daysPerWeek: 5,
+  // ^^^^^^ 新增字段的默认值 ^^^^^^
 };
 const semesterForm = reactive({ ...initialSemesterForm });
 const semesterFormRef = ref(null);
@@ -127,27 +168,52 @@ const semesterFormRef = ref(null);
 const semesterFormRules = reactive({
   academicYear: [{ required: true, message: '学年为必填项', trigger: 'blur' }],
   name: [{ required: true, message: '学期名称为必填项', trigger: 'change' }],
-  startDate: [{ type: 'date', message: '开始日期格式不正确', trigger: 'change' }],
-  endDate: [{ type: 'date', message: '结束日期格式不正确', trigger: 'change' }],
+  startDate: [
+    { required: true, message: '开始日期为必填项', trigger: 'change' },
+    { type: 'date', message: '开始日期格式不正确', trigger: 'change' }
+  ],
+  endDate: [
+    { required: true, message: '结束日期为必填项', trigger: 'change' },
+    { type: 'date', message: '结束日期格式不正确', trigger: 'change' },
+    { validator: (rule, value, callback) => {
+        if (semesterForm.startDate && value && dayjs(value).isBefore(dayjs(semesterForm.startDate))) {
+          callback(new Error('结束日期不能早于开始日期'));
+        } else {
+          callback();
+        }
+      }, trigger: 'change' }
+  ],
+  // VVVVVV 新增字段的校验规则 VVVVVV
+  totalWeeks: [
+    { required: true, message: '总周数不能为空', trigger: 'blur' },
+    { type: 'integer', min: 1, message: '总周数必须是大于0的整数', trigger: 'blur'}
+  ],
+  periodsPerDay: [
+    { required: true, message: '每日总节次不能为空', trigger: 'blur' },
+    { type: 'integer', min: 1, max: 20, message: '每日总节次必须是1-20之间的整数', trigger: 'blur'}
+  ],
+  daysPerWeek: [
+    { required: true, message: '每周上课天数不能为空', trigger: 'blur' },
+    { type: 'integer', min: 1, max: 7, message: '每周上课天数必须是1-7之间的整数', trigger: 'blur'}
+  ],
+  // ^^^^^^ 新增字段的校验规则 ^^^^^^
 });
 
 const pagination = reactive({ currentPage: 1, pageSize: 10, total: 0, sortField: 'academicYear', sortOrder: 'desc' });
 
 const fetchSemesters = async () => {
+  // ... (您已有的 fetchSemesters 逻辑保持不变) ...
   loading.value = true;
   try {
     const params = {
       page: pagination.currentPage - 1,
       size: pagination.pageSize,
-      query: searchParams.query || null, // ★★★ 确保这里使用了 searchParams.query ★★★
-      // status: searchParams.status || null, // 如果学期管理也有状态搜索
+      query: searchParams.query || null,
     };
     if (pagination.sortField) {
       let direction = pagination.sortOrder === 'ascending' ? 'asc' : 'desc';
       params.sort = `${pagination.sortField},${direction}`;
     }
-
-    console.log(`Fetching ${API_SEMESTERS_URL} with params:`, JSON.stringify(params)); // 这行日志很有用
     const response = await axios.get(API_SEMESTERS_URL, { params });
     tableData.value = response.data.content;
     pagination.total = response.data.totalElements;
@@ -159,12 +225,10 @@ const fetchSemesters = async () => {
   }
 };
 
-const handleSearch = () => {
-  console.log('handleSearch called. Current search query:', searchParams.query); // <--- 添加日志
-  pagination.currentPage = 1; fetchSemesters(); };
+const handleSearch = () => { pagination.currentPage = 1; fetchSemesters(); };
 const handleResetSearch = () => {
-  searchFormRef.value?.resetFields(); // 只重置带prop的表单项
-  searchParams.query = ''; // 手动清空
+  searchFormRef.value?.resetFields();
+  searchParams.query = '';
   pagination.sortField = 'academicYear'; pagination.sortOrder = 'desc';
   handleSearch();
 };
@@ -172,7 +236,9 @@ const handleResetSearch = () => {
 const handleOpenAddDialog = () => {
   dialogMode.value = 'add';
   dialogTitle.value = '新增学期';
-  Object.assign(semesterForm, { ...initialSemesterForm, isCurrent: false });
+  // 使用深拷贝确保 initialSemesterForm 不被意外修改，并且每次新增都是干净的初始值
+  Object.assign(semesterForm, JSON.parse(JSON.stringify(initialSemesterForm)));
+  // isCurrent 在 initialForm 中已设为 false，如果需要特定逻辑可以再调整
   dialogVisible.value = true;
   nextTick(() => semesterFormRef.value?.clearValidate());
 };
@@ -180,21 +246,28 @@ const handleOpenAddDialog = () => {
 const handleOpenEditDialog = (row) => {
   dialogMode.value = 'edit';
   dialogTitle.value = '编辑学期';
+  // 深拷贝行数据到表单，确保日期等能被正确处理和回显
   Object.assign(semesterForm, JSON.parse(JSON.stringify(row)));
   dialogVisible.value = true;
   nextTick(() => semesterFormRef.value?.clearValidate());
 };
 
-const handleCloseDialog = () => { dialogVisible.value = false; };
+const handleCloseDialog = () => {
+  dialogVisible.value = false;
+  // resetFields 会将表单项重置为初始值（如果 form-item 有 prop），并清除校验
+  // 如果 initialSemesterForm 动态变化，或者希望更彻底重置为最新的 initialSemesterForm，下面的 assign 更好
+  // semesterFormRef.value?.resetFields();
+  Object.assign(semesterForm, JSON.parse(JSON.stringify(initialSemesterForm)));
+};
 
 const handleSubmitForm = async () => {
+  // ... (您已有的 handleSubmitForm 逻辑保持不变，它会提交整个 semesterForm) ...
   if (!semesterFormRef.value) return;
   await semesterFormRef.value.validate(async (valid) => {
     if (valid) {
       formSubmitting.value = true;
       try {
         const payload = { ...semesterForm };
-        // 日期可能需要特定格式化，但如果后端能处理 YYYY-MM-DD 就还好
         if (dialogMode.value === 'add') {
           await axios.post(API_SEMESTERS_URL, payload);
           ElMessage.success('学期创建成功！');
@@ -213,7 +286,7 @@ const handleSubmitForm = async () => {
   });
 };
 
-const handleDelete = async (id, name) => {
+const handleDelete = async (id, name) => { /* ... (您已有的 handleDelete 逻辑保持不变) ... */
   try {
     await ElMessageBox.confirm(`确定要删除学期 "${name}" 吗？`, '警告', {
       confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning', draggable: true,
@@ -237,15 +310,16 @@ const handleCurrentChange = (val) => { pagination.currentPage = val; fetchSemest
 const handleSortChange = ({ prop, order }) => {
   if (prop) {
     pagination.sortField = prop;
-    pagination.sortOrder = order || 'ascending';
-  } else {
+    pagination.sortOrder = order || 'ascending'; // el-table 的 order 是 'ascending' 或 'descending'
+  } else { // 默认排序
     pagination.sortField = 'academicYear'; pagination.sortOrder = 'desc';
   }
   fetchSemesters();
 };
 
-const formatDateTime = (row, column, cellValue) => cellValue ? cellValue.replace('T', ' ').substring(0, 16) : '';
-const formatDate = (row, column, cellValue) => cellValue ? cellValue : ''; // 日期类型直接显示
+// 日期格式化函数 (保持不变)
+const formatDateTime = (row, column, cellValue) => cellValue ? dayjs(cellValue).format('YYYY-MM-DD HH:mm') : ''; // 稍微修改格式
+const formatDate = (row, column, cellValue) => cellValue ? dayjs(cellValue).format('YYYY-MM-DD') : '';
 
 
 onMounted(() => {
@@ -254,7 +328,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 复用或微调 UserManagement 的样式 */
+/* 您已有的样式保持不变 */
 .semester-management-container { padding: 15px; background-color: #f4f6f8; min-height: calc(100vh - 50px); }
 .search-action-card { margin-bottom: 15px; }
 .search-action-card :deep(.el-card__body) { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }

@@ -188,12 +188,21 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 
 const PREDEFINED_CONSTRAINT_CODES = [
-  // ... (您之前的 PREDEFINED_CONSTRAINT_CODES 定义保持不变)
   { value: 'TEACHER_TIME_PREFERENCE', label: '教师时间偏好', description: '设置教师对特定时间段的偏好程度 (软约束)', defaultConstraintType: 'SOFT', defaultTargetEntityType: 'TEACHER', parameterFields: [ { name: 'dayOfWeek', label: '星期几', type: 'select', options: [{value:1, label:'周一'},{value:2, label:'周二'},{value:3, label:'周三'},{value:4, label:'周四'},{value:5, label:'周五'},{value:6, label:'周六'},{value:7, label:'周日'}], required: true }, { name: 'startPeriod', label: '开始节次', type: 'number', min: 1, required: true }, { name: 'endPeriod', label: '结束节次', type: 'number', min: 1, required: true }, { name: 'preferenceScore', label: '偏好分值', type: 'number', placeholder: '-2 到 2', required: true }]},
   { value: 'COURSE_FIXED_SCHEDULE', label: '课程固定排课', description: '将特定课程固定在某个时间段和教室 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'COURSE', parameterFields: [ { name: 'dayOfWeek', label: '星期几', type: 'select', options: [{value:1, label:'周一'},{value:2, label:'周二'},{value:3, label:'周三'},{value:4, label:'周四'},{value:5, label:'周五'},{value:6, label:'周六'},{value:7, label:'周日'}], required: true }, { name: 'startPeriod', label: '开始节次', type: 'number', min: 1, required: true }, { name: 'endPeriod', label: '结束节次', type: 'number', min: 1, required: true }, { name: 'roomId', label: '教室ID (可选)', type: 'number', required: false }]},
   { value: 'ROOM_TYPE_FOR_COURSE', label: '课程教室类型要求', description: '指定某门课程必须使用特定类型的教室 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'COURSE', parameterFields: [ { name: 'requiredRoomType', label: '要求教室类型', type: 'text', placeholder: '例如: 多媒体教室', required: true }]},
   { value: 'AVOID_CLASS_CONSECUTIVE_EVENTS', label: '班级避免连续活动', description: '一个班级一天内最多连续上多少节课 (软约束)', defaultConstraintType: 'SOFT', defaultTargetEntityType: 'CLASS_GROUP', parameterFields: [ { name: 'maxConsecutivePeriods', label: '最大连续节次数', type: 'number', min: 1, required: true }]},
-  { value: 'GLOBAL_NO_FRIDAY_AFTERNOON', label: '全局周五下午无课', description: '全局设置周五下午不安排任何课程 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'GLOBAL', parameterFields: [{ name: 'afternoonStartPeriod', label: '下午开始节次', type: 'number', min: 1, required: true, defaultValue: 5 }]}
+  { value: 'GLOBAL_NO_FRIDAY_AFTERNOON', label: '全局周五下午无课', description: '全局设置周五下午不安排任何课程 (硬约束)', defaultConstraintType: 'HARD', defaultTargetEntityType: 'GLOBAL', parameterFields: [{ name: 'afternoonStartPeriod', label: '下午开始节次', type: 'number', min: 1, required: true, defaultValue: 5 }]},
+  {
+    value: 'TEACHER_MAX_DAILY_PERIODS', // 规则编码，需要与后端 AutoSchedulingServiceImpl 中 evaluateGenericHardConstraint 的 case 匹配
+    label: '教师每日最大课时',
+    description: '限制一个教师一天内最多可以上的总节数 (硬约束)',
+    defaultConstraintType: 'HARD',
+    defaultTargetEntityType: 'TEACHER', // 这个约束通常是针对特定教师的
+    parameterFields: [
+      { name: 'maxPeriods', label: '每日最大节数', type: 'number', min: 1, required: true, placeholder: '例如: 4' }
+    ]
+  }
 ];
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
